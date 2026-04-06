@@ -104,15 +104,6 @@
   .complete-btn.done { background: var(--border); color: var(--muted); cursor: default; }
   .complete-msg { font-family: 'Cormorant Garamond', serif; font-style: italic; color: var(--green); font-size: 1rem; margin-top: 0.5rem; }
 
-  /* VERSE STUDY (unlocked after complete) */
-  .verse-study-section { margin-top: 1.5rem; }
-  .verse-study-header { font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.75rem; }
-  .verse-study-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .verse-nav { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-  .verse-btn { width: 34px; height: 34px; border: 1px solid var(--border); background: white; border-radius: 3px; font-family: 'Cinzel', serif; font-size: 0.68rem; color: var(--muted); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
-  .verse-btn:hover { border-color: var(--gold); color: var(--gold); }
-  .verse-btn.current { background: var(--deep); color: var(--gold-light); border-color: var(--deep); }
-
   /* STUDY CARD */
   .study-card { background: var(--parchment); border: 1px solid var(--border); border-radius: 6px; padding: 1.75rem; min-height: 100px; }
   .study-label { font-family: 'Cinzel', serif; font-size: 0.68rem; letter-spacing: 0.25em; color: var(--gold); margin-bottom: 1.1rem; display: flex; align-items: center; gap: 0.75rem; }
@@ -252,24 +243,20 @@
       </div>
     </div>
 
-    <!-- COMPLETE BUTTON -->
-    <div class="complete-area" id="complete-area" style="display:none">
-      <button class="complete-btn" id="complete-btn">✓ MARK CHAPTER COMPLETE</button>
-      <div class="complete-msg" id="complete-msg" style="display:none"></div>
-    </div>
-
-    <!-- VERSE STUDY (unlocked after completion) -->
-    <div id="verse-study-section" style="display:none">
-      <div class="verse-study-section">
-        <div class="verse-study-header">SELECT A VERSE TO STUDY</div>
-        <div class="verse-nav" id="verse-nav"></div>
-        <div id="verse-study-area">
-          <div class="study-card">
-            <div class="study-label">DEVOTIONAL STUDY</div>
-            <p style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--muted);font-size:1rem">Select a verse above to begin your study.</p>
-          </div>
+    <!-- CHAPTER DEVOTIONAL -->
+    <div id="chapter-devotional" style="display:none;margin-top:1.25rem">
+      <div class="study-card">
+        <div class="study-label">CHAPTER DEVOTIONAL</div>
+        <div id="chapter-devotional-content">
+          <div class="loading"><div class="spinner"></div> Generating devotional…</div>
         </div>
       </div>
+    </div>
+
+    <!-- COMPLETE BUTTON -->
+    <div class="complete-area" id="complete-area" style="display:none;margin-top:1.25rem">
+      <button class="complete-btn" id="complete-btn">✓ MARK CHAPTER COMPLETE</button>
+      <div class="complete-msg" id="complete-msg" style="display:none"></div>
     </div>
 
   </div>
@@ -451,23 +438,17 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(function(d) { return (d.content && d.content[0] && d.content[0].text) || ''; });
   }
 
-  function studyPromptKJV(ref, text) {
-    return 'You are a thoughtful Bible teacher. Study this verse:\n\nVerse: ' + ref + ' (KJV)\nText: "' + text + '"\n\nRespond ONLY in this HTML, no other text:\n<h3>Context</h3>\n<p>[1 short paragraph]</p>\n<h3>Key Truth</h3>\n<p>[core principle]</p>\n<h3>Reflection</h3>\n<ul><li>[q1]</li><li>[q2]</li><li>[q3]</li></ul>\n<h3>Application</h3>\n<p>[1 practical thing today]</p>\n\nKeep to ~200 words. Only those HTML tags.';
+  function studyPrompt(ref, kjvText, translation) {
+    var note = translation !== 'KJV' ? ' Frame your commentary and application from the ' + translation + ' translation perspective.' : '';
+    return 'You are a thoughtful Bible teacher. Study this verse:\n\nVerse: ' + ref + ' (' + translation + ')\nKJV Text: "' + kjvText + '"' + note + '\n\nRespond ONLY in this HTML, no other text:\n<h3>Context</h3>\n<p>[1 short paragraph]</p>\n<h3>Key Truth</h3>\n<p>[core principle]</p>\n<h3>Reflection</h3>\n<ul><li>[q1]</li><li>[q2]</li><li>[q3]</li></ul>\n<h3>Application</h3>\n<p>[1 practical thing today]</p>\n\nKeep to ~200 words. Only those HTML tags.';
   }
 
-  function studyPromptWithVerse(ref, translation) {
-    return 'You are a Bible teacher. Study ' + ref + ' in the ' + translation + ' translation.\n\nRespond ONLY in this HTML structure:\n\n<div class="verse-block">[exact ' + translation + ' verse text]</div>\n<h3>Context</h3>\n<p>[1 paragraph]</p>\n<h3>Key Truth</h3>\n<p>[core principle]</p>\n<h3>Reflection</h3>\n<ul><li>[q1]</li><li>[q2]</li><li>[q3]</li></ul>\n<h3>Application</h3>\n<p>[1 practical thing today]</p>\n\nKeep to ~200 words. Only those HTML tags.';
+  function chapterDevotionalPrompt(book, chapter, translation, verseSummary) {
+    var transNote = translation !== 'KJV' ? ' Frame the commentary from the ' + translation + ' translation perspective.' : '';
+    return 'You are a thoughtful Bible teacher. Write a devotional for the ENTIRE chapter of ' + book + ' ' + chapter + ' (' + translation + ').' + transNote + '\n\nChapter content summary (KJV):\n' + verseSummary + '\n\nRespond ONLY in this HTML, no other text:\n<h3>Overview</h3>\n<p>[what this chapter is about in 2 sentences]</p>\n<h3>Key Theme</h3>\n<p>[the central spiritual theme]</p>\n<h3>Key Verse</h3>\n<p>[quote the most important verse from this chapter]</p>\n<h3>Reflection</h3>\n<ul><li>[q1]</li><li>[q2]</li><li>[q3]</li></ul>\n<h3>Application</h3>\n<p>[1 practical thing to do today based on this chapter]</p>\n\nKeep to ~280 words. Only those HTML tags.';
   }
 
-  function extractVerseBlock(html) {
-    var m = html.match(/<div class="verse-block">([\s\S]*?)<\/div>/);
-    return {
-      verseText: m ? m[1].trim() : '',
-      studyHtml: html.replace(/<div class="verse-block">[\s\S]*?<\/div>/, '').trim()
-    };
-  }
-
-  // ── Load chapter ─────────────────────────────────────────
+  // ── Load chapter — always bible-api.com (KJV text) ───────
   function loadChapter() {
     chapterCompleted = isTodayComplete();
     updateHeader();
@@ -475,45 +456,16 @@ document.addEventListener('DOMContentLoaded', function() {
     var area = document.getElementById('chapter-area');
     area.innerHTML = '<div class="chapter-card"><div class="loading"><div class="spinner"></div> Loading chapter…</div></div>';
     document.getElementById('complete-area').style.display = 'none';
-    document.getElementById('verse-study-section').style.display = 'none';
+    document.getElementById('chapter-devotional').style.display = 'none';
+    document.getElementById('chapter-devotional-content').innerHTML = '<div class="loading"><div class="spinner"></div> Generating devotional…</div>';
 
-    if (currentTranslation === 'KJV') {
-      loadKJVChapter();
-    } else {
-      loadNonKJVChapter();
-    }
-  }
-
-  function loadKJVChapter() {
-    fetch('https://bible-api.com/' + encodeURIComponent(state.book) + '+' + day + '?translation=kjv')
+    fetch('https://bible-api.com/' + state.book.toLowerCase().replace(/\s+/g, '+') + '+' + day + '?translation=kjv')
       .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
       .then(function(data) {
-        chapterVerses = data.verses || [];
-        renderChapter(chapterVerses.map(function(v) {
+        chapterVerses = (data.verses || []).map(function(v) {
           return { num: v.verse, text: v.text.trim() };
-        }));
-      })
-      .catch(function() {
-        document.getElementById('chapter-area').innerHTML =
-          '<div class="chapter-card"><p class="error-text">Could not load chapter. Check your internet connection.</p></div>';
-      });
-  }
-
-  function loadNonKJVChapter() {
-    // Ask Claude to provide full chapter
-    var prompt = 'Provide the complete text of ' + state.book + ' chapter ' + day + ' in the ' + currentTranslation + ' translation.\n\nRespond ONLY with the verses in this exact format, nothing else:\n<v n="1">verse text here</v>\n<v n="2">verse text here</v>\n...\n\nNo introduction, no commentary, no chapter headings. Just the verses in that format.';
-
-    claudeRequest(prompt)
-      .then(function(html) {
-        var verses = [];
-        var rx = /<v n="(\d+)">([\s\S]*?)<\/v>/g;
-        var m;
-        while ((m = rx.exec(html)) !== null) {
-          verses.push({ num: parseInt(m[1]), text: m[2].trim() });
-        }
-        if (!verses.length) throw new Error('parse failed');
-        chapterVerses = verses;
-        renderChapter(verses);
+        });
+        renderChapter(chapterVerses);
       })
       .catch(function() {
         document.getElementById('chapter-area').innerHTML =
@@ -522,8 +474,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function renderChapter(verses) {
+    var transNote = currentTranslation !== 'KJV' ? ' <span style="font-size:0.55rem;opacity:0.6">(KJV TEXT · ' + currentTranslation + ' STUDY)</span>' : '';
     var html = '<div class="chapter-card">';
-    html += '<div class="chapter-intro">' + state.book.toUpperCase() + ' · CHAPTER ' + day + ' · ' + currentTranslation + '</div>';
+    html += '<div class="chapter-intro">' + state.book.toUpperCase() + ' · CHAPTER ' + day + ' · ' + currentTranslation + transNote + '</div>';
     verses.forEach(function(v) {
       html += '<div class="verse-row">';
       html += '<span class="verse-number">' + v.num + '</span>';
@@ -532,6 +485,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     html += '</div>';
     document.getElementById('chapter-area').innerHTML = html;
+
+    // Show chapter devotional section
+    document.getElementById('chapter-devotional').style.display = 'block';
 
     // Show complete button
     var ca = document.getElementById('complete-area');
@@ -544,26 +500,41 @@ document.addEventListener('DOMContentLoaded', function() {
       cb.textContent = '✓ CHAPTER COMPLETED';
       cm.style.display = 'block';
       cm.textContent = 'Well done. This chapter has been completed.';
-      showVerseStudy(verses);
     } else {
       cb.className = 'complete-btn';
       cb.textContent = '✓ MARK CHAPTER COMPLETE';
       cm.style.display = 'none';
-      document.getElementById('verse-study-section').style.display = 'none';
     }
+
+    generateChapterDevotional(verses);
   }
 
-  // ── Mark complete ────────────────────────────────────────
+  function generateChapterDevotional(verses) {
+    var contentEl = document.getElementById('chapter-devotional-content');
+    contentEl.innerHTML = '<div class="loading"><div class="spinner"></div> Generating devotional…</div>';
+
+    var summary = verses.map(function(v) {
+      return v.num + '. ' + v.text;
+    }).join(' ');
+
+    claudeRequest(chapterDevotionalPrompt(state.book, day, currentTranslation, summary))
+      .then(function(html) {
+        contentEl.innerHTML = '<div class="study-content">' + html + '</div>';
+      })
+      .catch(function() {
+        contentEl.innerHTML = '<p class="error-text">Could not generate devotional. Check your connection.</p>';
+      });
+  }
+
+  // ── Mark complete ────────────────────────────────────────────
   document.getElementById('complete-btn').addEventListener('click', function() {
     if (chapterCompleted) return;
     chapterCompleted = true;
 
-    // Add to completed list (no dupes)
     if (state.completedChapters.indexOf(day) === -1) {
       state.completedChapters.push(day);
     }
 
-    // After 4 completions, unlock book change
     if (state.completedChapters.length >= 4) {
       state.locked = false;
     } else {
@@ -582,70 +553,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (remaining > 0) {
       cm.textContent = 'Well done! Complete ' + remaining + ' more chapter' + (remaining > 1 ? 's' : '') + ' to unlock book change.';
     } else {
-      cm.textContent = 'Excellent! You\'ve completed 4 chapters. You may now change your reading book.';
+      cm.textContent = 'Excellent! You've completed 4 chapters. You may now change your reading book.';
     }
     cm.style.display = 'block';
-
-    showVerseStudy(chapterVerses.map ? chapterVerses.map(function(v) {
-      return v.verse ? { num: v.verse, text: v.text.trim() } : v;
-    }) : chapterVerses);
   });
 
-  // ── Verse study section ──────────────────────────────────
-  function showVerseStudy(verses) {
-    document.getElementById('verse-study-section').style.display = 'block';
-    var nav = document.getElementById('verse-nav');
-    nav.innerHTML = '';
-    verses.forEach(function(v) {
-      var btn = document.createElement('button');
-      btn.className = 'verse-btn';
-      btn.textContent = v.num;
-      btn.addEventListener('click', (function(verse) {
-        return function() {
-          document.querySelectorAll('.verse-btn').forEach(function(b) { b.classList.remove('current'); });
-          btn.classList.add('current');
-          generateVerseStudy(verse);
-        };
-      })(v));
-      nav.appendChild(btn);
-    });
-  }
-
-  function generateVerseStudy(verse) {
-    var ref = state.book + ' ' + day + ':' + verse.num;
-    var area = document.getElementById('verse-study-area');
-    area.innerHTML = '<div class="study-card"><div class="study-label">DEVOTIONAL STUDY</div><div class="loading"><div class="spinner"></div> Generating study…</div></div>';
-
-    var verseText = typeof verse.text === 'string' ? verse.text : '';
-
-    if (currentTranslation === 'KJV' && verseText) {
-      claudeRequest(studyPromptKJV(ref, verseText))
-        .then(function(html) {
-          area.innerHTML = '<div class="study-card"><div class="study-label">DEVOTIONAL STUDY</div>' +
-            '<div class="selected-verse-text">' + verseText + '</div>' +
-            '<div class="study-content">' + html + '</div></div>';
-        })
-        .catch(function() {
-          area.innerHTML = '<div class="study-card"><div class="study-label">DEVOTIONAL STUDY</div>' +
-            '<p class="error-text">Could not generate study. Check your connection.</p></div>';
-        });
-    } else {
-      claudeRequest(studyPromptWithVerse(ref, currentTranslation))
-        .then(function(html) {
-          var parts = extractVerseBlock(html);
-          var displayText = parts.verseText || verseText;
-          area.innerHTML = '<div class="study-card"><div class="study-label">DEVOTIONAL STUDY</div>' +
-            '<div class="selected-verse-text">' + displayText + '</div>' +
-            '<div class="study-content">' + parts.studyHtml + '</div></div>';
-        })
-        .catch(function() {
-          area.innerHTML = '<div class="study-card"><div class="study-label">DEVOTIONAL STUDY</div>' +
-            '<p class="error-text">Could not generate study. Check your connection.</p></div>';
-        });
-    }
-  }
-
-  // ── Book picker modal ────────────────────────────────────
+    // ── Book picker modal ────────────────────────────────────
   var grid = document.getElementById('book-grid');
   DAILY_BOOKS.forEach(function(b) {
     var btn = document.createElement('button');
@@ -710,44 +623,30 @@ document.addEventListener('DOMContentLoaded', function() {
       '<div class="loading"><div class="spinner"></div> Loading…</div>';
 
     var ref = book + ' ' + chapter + ':' + verse;
+    var apiRef = book.toLowerCase().replace(/\s+/g, '+') + '+' + chapter + ':' + verse;
 
-    if (currentTranslation === 'KJV') {
-      fetch('https://bible-api.com/' + encodeURIComponent(ref) + '?translation=kjv')
-        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
-        .then(function(data) {
-          var text = ((data.verses && data.verses[0] && data.verses[0].text) || data.text || '').trim();
-          document.getElementById('custom-verse-ref').textContent = book.toUpperCase() + ' ' + chapter + ':' + verse + ' · KJV';
-          document.getElementById('custom-verse-text').textContent = text;
-          document.getElementById('custom-study-content').innerHTML =
-            '<div class="loading"><div class="spinner"></div> Generating study…</div>';
-          return claudeRequest(studyPromptKJV(ref, text));
-        })
-        .then(function(html) {
-          document.getElementById('custom-study-content').innerHTML =
-            '<div class="study-content">' + html + '</div>';
-        })
-        .catch(function() {
-          document.getElementById('custom-verse-text').textContent = 'Verse not found. Check book, chapter, and verse.';
-          document.getElementById('custom-study-content').innerHTML = '';
-        })
-        .finally(function() { btn.disabled = false; btn.textContent = 'STUDY'; });
-    } else {
-      document.getElementById('custom-study-content').innerHTML =
-        '<div class="loading"><div class="spinner"></div> Fetching verse & generating study…</div>';
-      claudeRequest(studyPromptWithVerse(ref, currentTranslation))
-        .then(function(html) {
-          var parts = extractVerseBlock(html);
-          document.getElementById('custom-verse-ref').textContent = book.toUpperCase() + ' ' + chapter + ':' + verse + ' · ' + currentTranslation;
-          document.getElementById('custom-verse-text').textContent = parts.verseText;
-          document.getElementById('custom-study-content').innerHTML =
-            '<div class="study-content">' + parts.studyHtml + '</div>';
-        })
-        .catch(function() {
-          document.getElementById('custom-verse-text').textContent = 'Could not fetch verse. Check your connection.';
-          document.getElementById('custom-study-content').innerHTML = '';
-        })
-        .finally(function() { btn.disabled = false; btn.textContent = 'STUDY'; });
-    }
+    fetch('https://bible-api.com/' + apiRef + '?translation=kjv')
+      .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function(data) {
+        var text = ((data.verses && data.verses[0] && data.verses[0].text) || data.text || '').trim();
+        var refLabel = currentTranslation !== 'KJV'
+          ? book.toUpperCase() + ' ' + chapter + ':' + verse + ' · ' + currentTranslation + ' (KJV text)'
+          : book.toUpperCase() + ' ' + chapter + ':' + verse + ' · KJV';
+        document.getElementById('custom-verse-ref').textContent = refLabel;
+        document.getElementById('custom-verse-text').textContent = text;
+        document.getElementById('custom-study-content').innerHTML =
+          '<div class="loading"><div class="spinner"></div> Generating study…</div>';
+        return claudeRequest(studyPrompt(ref, text, currentTranslation));
+      })
+      .then(function(html) {
+        document.getElementById('custom-study-content').innerHTML =
+          '<div class="study-content">' + html + '</div>';
+      })
+      .catch(function() {
+        document.getElementById('custom-verse-text').textContent = 'Verse not found. Check book, chapter, and verse.';
+        document.getElementById('custom-study-content').innerHTML = '';
+      })
+      .finally(function() { btn.disabled = false; btn.textContent = 'STUDY'; });
   }
 
   // ── Init ─────────────────────────────────────────────────
